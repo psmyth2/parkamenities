@@ -5,6 +5,7 @@ var myCities = [  //NAME AND BOUNDS OF CITIES -97.938383,30.098659,-97.56842,30.
   {name:"Austin",bnds:[[30.098659,-97.938383],[30.516863,-97.56842]]}
 ]
 ,tblName = "park_amenities" // cartoDB table name
+//,parkLayer = "city_of_austin_parks"
 ,usrName = "psmyth2" // your cartoDB username
 ,brandText = "Mapping Austin's park amenities" // top left text and link on site
 ,brandLink = "http://smythgeospatial.com" //top left link on site
@@ -19,7 +20,6 @@ var selectedCity = myCities[0]//selected city defaults to first myCities city.
 ,hoodsLayer
 ,map
 ,freeDrawLayer
-,geoJsonLayer
 ,highlightHoods=[]
 ,highlightCount = 0
 ,c = new L.Control.Zoom({position:'topright'})
@@ -29,7 +29,7 @@ var selectedCity = myCities[0]//selected city defaults to first myCities city.
 ,downloadURL = myPath+"/sql?format=shp&q=select+*+from+"+tblName
 ,ajaxrunning = false
 ,flagIndex = null
-,poly//var for leaflet draw 
+,poly//var for leaflet draw
 ,marker
 ,geomType
 ,drawnItems//var for drawn polys
@@ -41,7 +41,7 @@ var selectedCity = myCities[0]//selected city defaults to first myCities city.
     "color":"#cd0000",//data.rows[i].strokeColor,
     "weight":2,
     "opacity":1,
-    "fill":false,
+    //"fill":false,
     "clickable":false
 }
 //fill array from color brewer
@@ -60,8 +60,37 @@ var selectedCity = myCities[0]//selected city defaults to first myCities city.
 })
 ,instructed={};
 /*---------------------------
------ $(window).load -------
----------------------------*/
+----- $(window).load -------*/
+
+//load some parks
+$.ajax({
+dataType: "json",
+url: "layers/city_of_austin_parks.geojson",
+success: function(data) {
+    var parkLayer = L.geoJson(data, {
+        style: function(feature) {
+            return {
+              "color": "#78c679",
+              "weight": 3,
+              "opacity": 1,
+              "fill": false,
+              "fillOpacity": .5
+            }
+        },
+        onEachFeature: parkPopups
+    }).addData(data);
+    
+    parkLayer.addTo(lg);
+    parkLayer.setZIndex(0);
+}
+}).error(function() {}); 
+
+
+
+var parkPopups = function onEachFeature(feature, layer) {
+        layer.bindPopup('<h6>'+feature.properties.PARK_NAME+'</h6><p>address: '+feature.properties.ADDRESS+'</p>');
+};
+
 function go(){
   $( 'body' ).attr('class','make');
   $('#deletePolyBtn').hide();
@@ -88,7 +117,6 @@ function go(){
   //draw controls
   drawnItems = new L.FeatureGroup();
   map.addLayer(drawnItems);
-  
    
     //-----------------------------END DRAW CONTROLS---------------------------------------
 
@@ -205,22 +233,25 @@ function go(){
       // if ( freeDrawLayer) map.removeLayer( freeDrawLayer );
       // freeDrawLayer = undefined;
       $("#submitModal").modal('show');
+      getExistingParkNames();
       getExistingNeighborhoodNames();
-      //getExistingCityNames();
+      
     //}
   });
-  $(".park-group > button.btn").on("click", function(){
+    //years in hood?
+  $(".nbr-group > button.btn").on("click", function(){
     num = this.name;
-    parkRate = num;
+    nbrhdYears = num;
   });
+    //how often do you visit?
   $(".park-group1 > button.btn").on("click", function(){
     num = this.name;
     parkVisit = num;
   });
-  $(".nbr-group > button.btn").on("click", function(){
+    //how would you rate this park?
+  $(".park-group > button.btn").on("click", function(){
     num = this.name;
-    console.log(num)
-    nbrhdYears = num;
+    parkRate = num;
   });
   $("#allSubmitBtn").click(function(e){
   //CHECK IF Neighborhood has a name
@@ -233,12 +264,13 @@ function go(){
       alert('Please enter a park name, Thanks!');  
       return;
     };
-    currentNeighborhood = document.getElementById('neighborhoodName').value;
-    currentDescription = document.getElementById('parkDescription').value;
     currentPark = document.getElementById('parkName').value;
+    currentDescription = document.getElementById('parkDescription').value;
+    currentNeighborhood = document.getElementById('neighborhoodName').value;
     document.getElementById('neighborhoodName').value = '';
-    document.getElementById('parkDescription').value= '';
     document.getElementById('parkName').value= '';
+    document.getElementById('parkDescription').value= '';
+    document.getElementById('neighborhoodName').value= '';
     $('#deletePolyBtn').hide();
     $('#submitPolyBtn').hide();
     $('#startPolyBtn').show();
@@ -265,13 +297,13 @@ function go(){
       }
       poly
         .setStyle({color:'#03f',fillColor:'#03f',weight:2,fillOpacity:.1})
-        .bindPopup( currentNeighborhood )
+        .bindPopup( currentPark )
         .disableEdit();
       poly = undefined;
     } else {
       tableExt = "_point"
       coords = '[' + marker.getLatLng().lng + ',' + marker.getLatLng().lat + ']';
-      marker.bindPopup( currentNeighborhood )
+      marker.bindPopup( currentPark )
         .disableEdit();
       marker = undefined;
       map.off("editable:editing").off("editable:drawing:commit");
@@ -280,11 +312,11 @@ function go(){
     postData( "php/add.php",{
       ext: tableExt,
       coords: coords,
-      park: currentPark, //changed
-      description: (currentDescription.replace(/'/g,"''")).replace(/"/g,"''"),
       neighName: (currentNeighborhood.replace(/'/g,"''")).replace(/"/g,"''"),
-      parkRate: parkRate,
+      park: (currentPark.replace(/'/g,"''")).replace(/"/g,"''"),
+      description: (currentDescription.replace(/'/g,"''")).replace(/"/g,"''"),
       hoodYears: nbrhdYears,
+      parkRate: parkRate,
       parkVisit: parkVisit
     });
     
@@ -315,7 +347,7 @@ var loadHoods = function(){
   cartodb.createLayer(map, {
     user_name: usrName,
     table_name: tblName+"_point",
-    zIndex:'999',
+    zIndex:'9999',
     type: 'cartodb',
     cartodb_logo: false,
     query: "SELECT * FROM "+tblName+"_point where flag = false",
@@ -329,7 +361,7 @@ var loadHoods = function(){
   cartodb.createLayer(map, {
     user_name: usrName,
     table_name: tblName,
-    zIndex:'999',
+    zIndex:'9999',
     type: 'cartodb',
     cartodb_logo: false,
     query: "SELECT * FROM "+tblName+" where flag = false",
@@ -373,7 +405,7 @@ var hoodClickGetter = function(ll){
       }).done(function(data) {
         var pgArr = '{';
         var unique = false;
-        //build array for geojson query and see if the hood is already highlighted
+        //build array for geojson query and see if the park is already highlighted
         for(var i = 0;i<data.rows.length;i++){
           boo = true;
           for(var h=0;h<highlightHoods.length;h++){
@@ -396,7 +428,7 @@ var hoodClickGetter = function(ll){
       });
 
 }
-var getNewHoods = function (arr){//takes array of neighborhoood names, gets and draws geojson
+var getNewHoods = function (arr){//takes array of park names, gets and draws geojson
   var bnds = map.getBounds()
   ,top = bnds.getNorth()
   ,right = bnds.getEast()
@@ -558,6 +590,8 @@ var postData = function(url,data){
       console.log(d);
     });
 }
+
+
 var getExistingNeighborhoodNames = function(){
   $.ajax(
     {url:myPath+"/sql?q=SELECT nbrhd_name,COUNT(nbrhd_name) FROM "+tblName+" WHERE flag = false GROUP BY nbrhd_name ORDER BY nbrhd_name ASC",
@@ -579,26 +613,27 @@ var getExistingNeighborhoodNames = function(){
     });
   });
 }
-/*var getExistingCityNames = function(){
+var getExistingParkNames = function(){
   $.ajax(
-    {url:myPath+"/sql?q=SELECT city,COUNT(city) FROM "+tblName+" WHERE flag = false GROUP BY city ORDER BY city ASC",
+    {url:myPath+"/sql?q=SELECT park,COUNT(park) FROM "+tblName+" WHERE flag = false GROUP BY park ORDER BY park ASC",
       crossDomain:true,
       dataType:"jsonp",
       error: function (xhr, text_status, error_thrown) {
         console.log(text_status)
       }
     }).done(function(data) {
-      var newARR=[].concat(cityNames);
+      var newARR=[].concat(parkNames);
+      console.log(newARR);
       $.each(data.rows, function() {
-        if ( newARR.indexOf( this.city ) == -1 )
-      newARR.push(this.city);
+        if ( newARR.indexOf( this.park ) == -1 )
+      newARR.push(this.park);
     });
-    $('#cityName').typeahead({
+    $('#parkName').typeahead({
       name:"yy",
       local: newARR
     });
   });
-}*/
+}
 var animateHeart = function(ex,wy){
   $("#loveIcon").css({left:ex-10,top:wy-10,opacity:1,width:20,height:20});
   $( "#loveIcon" ).animate({
