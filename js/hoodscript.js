@@ -342,7 +342,7 @@ function go(){
 ----- Some Functions -------------
 ---------------------------*/
 var loadHoods = function(){
-  //remove curren results layer
+  //remove current results layer
   lg.clearLayers();
   cartodb.createLayer(map, {
     user_name: usrName,
@@ -389,6 +389,7 @@ var hoodClickHandler = function(ev,latlng,pos,data){
 }
 var pointClicky = function(ev,latlng,pos,data){
   console.log(data);
+  hoodClickGetter(latlng);
 }
 var hoodClickGetter = function(ll){
   getJSON.abort();
@@ -409,7 +410,7 @@ var hoodClickGetter = function(ll){
         for(var i = 0;i<data.rows.length;i++){
           boo = true;
           for(var h=0;h<highlightHoods.length;h++){
-              if(data.rows[i].name===highlightHoods[h].name){
+              if(data.rows[i].nbrhd_name===highlightHoods[h].nbrhd_name){
                 boo = false;
                 break;
               }
@@ -428,7 +429,7 @@ var hoodClickGetter = function(ll){
       });
 
 }
-var getNewHoods = function (arr){//takes array of park names, gets and draws geojson
+var getNewHoods = function (arr){//takes array of park names, gets and draws amenity geojson
   var bnds = map.getBounds()
   ,top = bnds.getNorth()
   ,right = bnds.getEast()
@@ -460,7 +461,7 @@ var getNewHoods = function (arr){//takes array of park names, gets and draws geo
         }
         for(var i = 0;i<data.rows.length;i++){
           highlightCount++;
-          var count = data.rows[i].count;//this is the number of versions of that specific park
+          var count = data.rows[i].count;//this is the number of versions of that specific amenity
           var name = data.rows[i].nbrhd_name;
           var op = 1-(Math.pow(.2,1/count));
           data.rows[i].layers=[];
@@ -591,7 +592,7 @@ var postData = function(url,data){
     });
 }
 
-
+//type ahead stuff
 var getExistingNeighborhoodNames = function(){
   $.ajax(
     {url:myPath+"/sql?q=SELECT nbrhd_name,COUNT(nbrhd_name) FROM "+tblName+" WHERE flag = false GROUP BY nbrhd_name ORDER BY nbrhd_name ASC",
